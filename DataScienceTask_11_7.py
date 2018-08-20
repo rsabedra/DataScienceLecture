@@ -7,7 +7,7 @@ from scipy import stats, integrate
 from dateutil.parser import parse
 import time
 
-from matplotlib import pyplot
+import matplotlib.pyplot as plt
 from statsmodels.tsa.arima_model import ARIMA
 from sklearn.metrics import mean_squared_error
 
@@ -168,15 +168,21 @@ for y in range (0, len(list1)):
     
 MaxMinGasolineMonth = pd.DataFrame(
     {'Month': list1,
-     'listMaxE5': listMaxE5,
-     'listMinE5': listMinE5,
-     'listMaxE10': listMaxE10,
-     'listMinE10': listMinE10,
-     'listMaxDIESEL': listMaxDIESEL,
-     'listMinDIESEL': listMinDIESEL
+     'MaxE5': listMaxE5,
+     'MinE5': listMinE5,
+     'MaxE10': listMaxE10,
+     'MinE10': listMinE10,
+     'MaxDIESEL': listMaxDIESEL,
+     'MinDIESEL': listMinDIESEL
     })
     
+#%%   
+#
+MaxMinGasolineMonth['Month'] = pd.to_datetime(MaxMinGasolineMonth['Month'], format='%Y-%m')
+MaxMinGasolineMonth.plot.line(x='Month')
+    
 
+    
 
     
 #%%   
@@ -213,6 +219,25 @@ for y in range (0, len(tst)):
 majorGasStations = dict(zip(listQuantOfBrands, tst))    
 
 
+aux = pd.DataFrame.from_dict(majorGasStations, orient='index')
+
+
+pd.DataFrame.from_dict(aux, orient='index',
+                       columns=['Count', 'Brand'])
+
+#
+#plt.bar(range(len(D)), list(D.values()), align='center')
+#plt.xticks(range(len(D)), list(D.keys()))
+#
+#
+#
+#fig1, ax1 = plt.subplots()
+#ax1.pie(sizes, explode=explode, labels=labels, autopct='%1.1f%%',
+#        shadow=True, startangle=90)
+#ax1.axis('equal')  # Equal aspect ratio ensures that pie is drawn as a circle.
+#
+#plt.show()
+
 #%%
 
 #What is the maximum range of each gasoline type per month?
@@ -244,6 +269,46 @@ for x in range (0, len(table2.POST_CODE)):
 
 RegionsGasStations = [[x,listPostReg.count(x)] for x in set(listPostReg)]
 
+RegionsGasStations2 = pd.DataFrame(
+{
+ 'Region':[ x[0] for x in RegionsGasStations],
+ 'Count':[ x[1] for x in RegionsGasStations]
+}) 
+RegionsGasStations2 = RegionsGasStations2.iloc[2:]
+    
+#%%
+
+
+##RegionsGasStations2.plot.pie(y='Count', x='Region')  
+#
+## Create a pie chart
+#plt.pie(
+#    # using data total)arrests
+#    RegionsGasStations2['Count'],
+#    # with the labels being officer names
+#    labels=RegionsGasStations2['Region'],
+#    # with no shadows
+#    shadow=False,
+#    explode=(0.15,0.15,0.15, 0.15, 0.15, 0.15, 0.15,0.15),
+#    startangle=90,
+#    autopct='%1.1f%%', labeldistance=1.1
+#    
+#    )
+#
+## View the plot drop above
+#plt.axis('equal')
+#
+## View the plot
+#plt.tight_layout()
+#plt.show()
+
+
+ax = sns.barplot(x="Region", y="Count",  data=RegionsGasStations2)   
+    
+    
+#%%
+
+plt.bar(range(len(RegionsGasStations)), RegionsGasStations.values(), align="center")
 #%%
 
 table['DAY'] = 0
@@ -302,6 +367,58 @@ for t in range(len(test)):
 
 
 #%%
+
+
+
+
+
+
+import pandas as pd
+import matplotlib.pyplot as plt
+import datetime as DT
+import seaborn as sns
+import numpy as np
+from scipy import stats, integrate
+import time
+import matplotlib.ticker as ticker
+from string import Template
+from PyPDF2 import PdfFileMerger
+
+
+#%%
+def PdfsMerger(pdfList, outputName):
+    merger = PdfFileMerger()
+
+    for pdf in pdfList:
+        merger.append(open(pdf, 'rb'))
+    
+    with open('%s/%s/%s.pdf' % (outputFolder, folder, outputName) , 'wb') as fout:
+        merger.write(fout)    
+                
+#%%
+def PdfCreator(merger, pdf, outputFolder, folder, outName):
+    
+    with open('%s/%s/%s.pdf' % (outputFolder, folder, outName), 'wb') as fout:
+        merger.write(fout)    
+    #print fout     
+
+
+#%%
+               
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
