@@ -1,11 +1,19 @@
 import pandas as pd
-import matplotlib.pyplot as plt
+
 import datetime as DT
 import seaborn as sns
 import numpy as np
 from scipy import stats, integrate
 from dateutil.parser import parse
 import time
+
+from matplotlib import pyplot
+from statsmodels.tsa.arima_model import ARIMA
+from sklearn.metrics import mean_squared_error
+
+
+
+
 #%%
 def DataRead(str1, useCols, tablenames):
     dataTable = pd.read_csv("%s" % str1, header=None, sep="\s*\;",usecols=useCols, names=tablenames,  engine='python')
@@ -28,7 +36,7 @@ def CollumnAppend (name, data, df):
 #%% Define:
     
 tablePath = "C:/Users/rsabedra/Documents/Python/example_sprit_cut_prices.csv"
-
+tablePath2 = "C:/Users/rsabedra/Documents/Python/example_sprit_cut_station.csv"
 #%%
 useColls = [0, 1, 2, 3, 4]
 tableCollumns = ['ID', 'E5', 'E10', 'DIESEL', 'DATA'] 
@@ -43,14 +51,21 @@ table.DIESEL = pd.to_numeric(table.DIESEL, errors='coerce')
 
 useColls2 = [0, 4, 7,10,11]
 tableCollumns2 = ['ID', 'BRAND', 'POST_CODE', 'LAT', 'LNG'] 
-table2 = DataRead(tablePath, useColls2 , tableCollumns2)
+table2 = DataRead(tablePath2, useColls2 , tableCollumns2)
 
 
 table = table.dropna()
 table = table.reset_index(drop=True)
+table = table.drop_duplicates(inplace=False)
 
 table2 = table2.dropna()
 table2 = table2.reset_index(drop=True)
+table2 = table2.drop_duplicates(inplace=False)
+
+#%%
+
+
+#%%
 
 
 #%%
@@ -106,6 +121,8 @@ listMaxDIESEL = list()
 listMinE5 = list()
 listMinE10 = list()
 listMinDIESEL = list()
+listLocMinDIESEL = list()
+
 
 var = table.iloc[0, 4][1:-20]
 
@@ -117,24 +134,26 @@ for y in range (0, len(list1)):
     E5Min = 9999999
     E10Min = 9999999
     DIESELMin = 9999999
-
+    
+    
     for x in range (0, len(table.DATA)):
         if(list1[y] == table.iloc[x, 4][1:-20]):
      
-            if (E5Max < table.iloc[x, 1]  and table.iloc[x, 1] < 8000):
+            if (E5Max < table.iloc[x, 1]  and table.iloc[x, 1] < 8000):   #Cleaning the data
                 E5Max = table.iloc[x, 1]
-            elif (E5Min > table.iloc[x, 1] and table.iloc[x, 1] > 10):
+            elif (E5Min > table.iloc[x, 1] and table.iloc[x, 1] > 10): #Cleaning the data
                 E5Min = table.iloc[x, 1]
                                 
-            if (E10Max < table.iloc[x, 2]  and table.iloc[x, 2] < 8000):
+            if (E10Max < table.iloc[x, 2]  and table.iloc[x, 2] < 8000): #Cleaning the data
                 E10Max = table.iloc[x, 2]
-            elif (E10Min > table.iloc[x, 2] and table.iloc[x, 2] > 10):
+            elif (E10Min > table.iloc[x, 2] and table.iloc[x, 2] > 10): #Cleaning the data
                 E10Min = table.iloc[x, 2]
             
-            if (DIESELMax < table.iloc[x, 3] and table.iloc[x, 3] < 8000):
+            if (DIESELMax < table.iloc[x, 3] and table.iloc[x, 3] < 8000): #Cleaning the data
                 DIESELMax = table.iloc[x, 3]
-            elif (DIESELMin > table.iloc[x, 3] and table.iloc[x, 3] > 10):
-                DIESELMin = table.iloc[x, 3]    
+            elif (DIESELMin > table.iloc[x, 3] and table.iloc[x, 3] > 10): #Cleaning the data
+                DIESELMin = table.iloc[x, 3]
+                IdDiesel= table.iloc[x, 0]  
                 
                 
 
@@ -145,10 +164,28 @@ for y in range (0, len(list1)):
     listMinE5.append(E5Min)
     listMinE10.append(E10Min)
     listMinDIESEL.append(DIESELMin)
+    listLocMinDIESEL.append(IdDiesel)
+    
+MaxMinGasolineMonth = pd.DataFrame(
+    {'Month': list1,
+     'listMaxE5': listMaxE5,
+     'listMinE5': listMinE5,
+     'listMaxE10': listMaxE10,
+     'listMinE10': listMinE10,
+     'listMaxDIESEL': listMaxDIESEL,
+     'listMinDIESEL': listMinDIESEL
+    })
+    
 
 
-
-
+    
+#%%   
+DieselLocation = pd.DataFrame(
+{
+ 'ID': listLocMinDIESEL,
+ 'listMinDIESEL': listMinDIESEL
+})    
+    
 #%%
 
 #What is the mean of each gasoline type?
@@ -190,7 +227,10 @@ for x in range (0, len(list1)):
     listRangeE10.append(listMaxE10[x] - listMinE10[x])
     listRangeDIESEL.append(listMaxDIESEL[x] - listMinDIESEL[x])
     
-
+#%%
+    print reduce(lambda x, y: x + y, listRangeE5) / len(listRangeE5)
+    print reduce(lambda x, y: x + y, listRangeE10) / len(listRangeE10)
+    print reduce(lambda x, y: x + y, listRangeDIESEL) / len(listRangeDIESEL)
 
 
 #%%
@@ -204,11 +244,112 @@ for x in range (0, len(table2.POST_CODE)):
 
 RegionsGasStations = [[x,listPostReg.count(x)] for x in set(listPostReg)]
 
+#%%
+
+table['DAY'] = 0
+table['MONTH'] = 0
+
+
+for x in range (0, len(table.DATA)):
+    aux1 = table.iloc[x, 4][6:-20]
+    aux2 = table.iloc[x, 4][9:-17]
+    CollumnFill ('MONTH', int(aux1), x, table)
+    CollumnFill ('DAY', int(aux2), x, table)
+
+
+
+
+#%%
+print table.iloc[0, 4][9:-17]
+
+
+
+
+table['DATA'] = pd.to_datetime(table['DATA'], format='"%Y-%m-%d %H:%M:%S.%f"')
+
+
+#%%
 
 
 
 
 
+
+Y = table.iloc[:1000,3]
+
+X = Y.astype('float64', raise_on_error = False)
+
+
+size = int(len(X) * 0.66)
+
+train, test = X[0:size], X[size:len(X)]
+
+history = [x for x in train]
+
+predictions = list()
+#%%
+for t in range(len(test)):
+	model = ARIMA(history, order=(5,1,0))
+	model_fit = model.fit(disp=0)
+	output = model_fit.forecast()
+	yhat = output[0]
+	predictions.append(yhat)
+	obs = test[t]
+	history.append(obs)
+	print('predicted=%i, expected=%i' % (yhat, obs))
+
+
+
+
+#%%
+
+
+
+
+#%%
+# =============================================================================
+# #%%
+# #What is the region with the least cost of DIESEL?
+# 
+# 
+# listOfBrands = list()
+# listOfCode = list()
+# 
+# for i in range (0, len(table2.ID)): 
+#     for j in range (0, len(DieselLocation.ID)):
+#         if (table2.iloc[i, 0] == DieselLocation.iloc[j, 0]):
+#             listOfBrands.append(table2.iloc[i, 1])
+#             listOfCode.append(table2.iloc[i, 2][0:-3])
+# 
+# 
+# 
+# 
+# DieselMinInfo = pd.DataFrame(
+# {
+#  'ID': listLocMinDIESEL,
+#  'MinDIESEL': listMinDIESEL,
+#  'Brands': listOfBrands,
+#  'Code': listOfCode
+# })  
+# 
+# #%%
+# from sklearn import linear_model
+# regr = linear_model.LinearRegression()
+# regr.fit(table, table.DATA)
+# LinearRegression(copy_X=True, fit_intercept=True, n_jobs=1, normalize=False)
+# print(regr.coef_)
+# 
+# 
+# # The mean square error
+# np.mean((regr.predict(table)-table.DATA)**2)
+# 
+# 
+# # Explained variance score: 1 is perfect prediction
+# # and 0 means that there is no linear relationship
+# # between X and y.
+# regr.score(table, table.DATA) 
+# 
+# =============================================================================
 
 
 
