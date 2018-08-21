@@ -1,19 +1,13 @@
 import pandas as pd
 
-import datetime as DT
 import seaborn as sns
-import numpy as np
-from scipy import stats, integrate
-from dateutil.parser import parse
-import time
 
 import matplotlib.pyplot as plt
-from statsmodels.tsa.arima_model import ARIMA
-from sklearn.metrics import mean_squared_error
+from matplotlib import pyplot
 
-
-
-
+from sklearn.linear_model import LinearRegression
+from sklearn import ensemble
+from sklearn.cross_validation import train_test_split
 #%%
 def DataRead(str1, useCols, tablenames):
     dataTable = pd.read_csv("%s" % str1, header=None, sep="\s*\;",usecols=useCols, names=tablenames,  engine='python')
@@ -29,8 +23,6 @@ def CollumnFill (name, data, index, df):
 def CollumnAppend (name, data, df): 
     df = df.append(data, ignore_index=True)
     return
-
-
 
 
 #%% Define:
@@ -54,7 +46,22 @@ tableCollumns2 = ['ID', 'BRAND', 'POST_CODE', 'LAT', 'LNG']
 table2 = DataRead(tablePath2, useColls2 , tableCollumns2)
 
 
+# =============================================================================
+# Organizing and cleaning the data
+# =============================================================================
+
 table = table.dropna()
+
+table = table.drop(table[table.E5 > 8000].index)
+table = table.drop(table[table.E5 < 10].index)
+
+table = table.drop(table[table.E10 > 8000].index)
+table = table.drop(table[table.E10 < 10].index)
+
+table = table.drop(table[table.DIESEL > 8000].index)
+table = table.drop(table[table.DIESEL < 10].index)
+
+
 table = table.reset_index(drop=True)
 table = table.drop_duplicates(inplace=False)
 
@@ -62,56 +69,47 @@ table2 = table2.dropna()
 table2 = table2.reset_index(drop=True)
 table2 = table2.drop_duplicates(inplace=False)
 
-#%%
-
 
 #%%
 
+# =============================================================================
+# Auxiliary function to create a months list based on the data
+# =============================================================================
 
-#%%
-#How many different brands are there
-tst = table2.groupby(['BRAND']).groups.keys()
-len(tst)
-
-#%%
-#How many different locations are present in the data
-len(table2.groupby(['LAT' , 'LNG']).count())
-
-
-
-##%%
-#date = DT.datetime.strptime(table.iloc[0, 4], '"%Y-%m-%d %H:%M:%S.%f"')
-#
-#table['MONTH'] = 0
-##%%
-#for x in range (0, len(table.DATA)):
-#    value = DT.datetime.strptime(table.iloc[0, 4], '"%Y-%m-%d %H:%M:%S.%f"')
-#    CollumnFill('MONTH', value, x, table)
-#
-#
-
-#%%
-
-list1 = list()
+MonthsTotal = list()
 
 monthAux = table.iloc[0, 4][1:-20]
-list1.append(monthAux)
+MonthsTotal.append(monthAux)
 
 for x in range (0, len(table.DATA)):
     if (monthAux != table.iloc[x, 4][1:-20]):
         value = table.iloc[x, 4][1:-20]
         monthAux = table.iloc[x, 4][1:-20]
     
-        list1.append(value)
+        MonthsTotal.append(value)
         
 
-list1 = list(set(list1))
-list1.sort()
+MonthsTotal = list(set(MonthsTotal))
+MonthsTotal.sort()
 
+#%%
+# =============================================================================
+# How many different brands are there?
+# =============================================================================
+tst = table2.groupby(['BRAND']).groups.keys()
+len(tst)
+
+#%%
+# =============================================================================
+# How many different locations are present in the data?
+# =============================================================================
+len(table2.groupby(['LAT' , 'LNG']).count())
 
 #%%
 
-# What is the min, max price for each gasoline type, per month
+# =============================================================================
+# # What is the min, max price for each gasoline type, per month?
+# =============================================================================
 
 
 listMaxE5 = list()
@@ -126,7 +124,7 @@ listLocMinDIESEL = list()
 
 var = table.iloc[0, 4][1:-20]
 
-for y in range (0, len(list1)):
+for y in range (0, len(MonthsTotal)):
     E5Max = 0
     E10Max = 0
     DIESELMax = 0
@@ -137,21 +135,21 @@ for y in range (0, len(list1)):
     
     
     for x in range (0, len(table.DATA)):
-        if(list1[y] == table.iloc[x, 4][1:-20]):
+        if(MonthsTotal[y] == table.iloc[x, 4][1:-20]):
      
-            if (E5Max < table.iloc[x, 1]  and table.iloc[x, 1] < 8000):   #Cleaning the data
+            if (E5Max < table.iloc[x, 1]):  
                 E5Max = table.iloc[x, 1]
-            elif (E5Min > table.iloc[x, 1] and table.iloc[x, 1] > 10): #Cleaning the data
+            elif (E5Min > table.iloc[x, 1]): 
                 E5Min = table.iloc[x, 1]
                                 
-            if (E10Max < table.iloc[x, 2]  and table.iloc[x, 2] < 8000): #Cleaning the data
+            if (E10Max < table.iloc[x, 2]):
                 E10Max = table.iloc[x, 2]
-            elif (E10Min > table.iloc[x, 2] and table.iloc[x, 2] > 10): #Cleaning the data
+            elif (E10Min > table.iloc[x, 2]):
                 E10Min = table.iloc[x, 2]
             
-            if (DIESELMax < table.iloc[x, 3] and table.iloc[x, 3] < 8000): #Cleaning the data
+            if (DIESELMax < table.iloc[x, 3]): 
                 DIESELMax = table.iloc[x, 3]
-            elif (DIESELMin > table.iloc[x, 3] and table.iloc[x, 3] > 10): #Cleaning the data
+            elif (DIESELMin > table.iloc[x, 3]): 
                 DIESELMin = table.iloc[x, 3]
                 IdDiesel= table.iloc[x, 0]  
                 
@@ -167,7 +165,7 @@ for y in range (0, len(list1)):
     listLocMinDIESEL.append(IdDiesel)
     
 MaxMinGasolineMonth = pd.DataFrame(
-    {'Month': list1,
+    {'Month': MonthsTotal,
      'MaxE5': listMaxE5,
      'MinE5': listMinE5,
      'MaxE10': listMaxE10,
@@ -176,33 +174,35 @@ MaxMinGasolineMonth = pd.DataFrame(
      'MinDIESEL': listMinDIESEL
     })
     
-#%%   
-#
 MaxMinGasolineMonth['Month'] = pd.to_datetime(MaxMinGasolineMonth['Month'], format='%Y-%m')
 MaxMinGasolineMonth.plot.line(x='Month')
-    
-
-    
-
-    
-#%%   
-DieselLocation = pd.DataFrame(
-{
- 'ID': listLocMinDIESEL,
- 'listMinDIESEL': listMinDIESEL
-})    
+plt.title('What is the min, max price for each gasoline type, per month?')
+plt.xlabel('Date')
+plt.ylabel('Price')    
+  
     
 #%%
 
-#What is the mean of each gasoline type?
+# =============================================================================
+# #What is the mean of each gasoline type?
+# =============================================================================
 table.describe()
 
+boxplot = pd.DataFrame()
+boxplot['ID'] = table['ID']
+boxplot['DIESEL'] = table['DIESEL']
+boxplot['E5'] = table['E5']
+boxplot['E10'] = table['E10']
+
+ax = sns.boxplot( data=boxplot)
+ax.set_title('What is the mean of each gasoline type?')
 
 
 
 #%%
-#What is the brand with major number of gas stations?
-
+# =============================================================================
+# #What is the brand with major number of gas stations?
+# =============================================================================
 listQuantOfBrands = list()
 
 
@@ -215,52 +215,65 @@ for y in range (0, len(tst)):
             cont += 1
 
     listQuantOfBrands.append(cont)
-    
-majorGasStations = dict(zip(listQuantOfBrands, tst))    
+
+majorGasStations = pd.DataFrame(
+{
+ 'Brands':[x for x in tst],
+ 'Count':[ x for x in listQuantOfBrands]
+}) 
 
 
-aux = pd.DataFrame.from_dict(majorGasStations, orient='index')
+majorGasStations = majorGasStations.drop(majorGasStations[majorGasStations.Count < 12].index)
+        
+a4_dims = (11.7, 8.27)
+fig, ax = pyplot.subplots(figsize=a4_dims)
+ax = sns.barplot(x="Brands", y="Count",  data=majorGasStations)   
+ax.set_title('What is the brand with major number of gas stations?') 
 
 
-pd.DataFrame.from_dict(aux, orient='index',
-                       columns=['Count', 'Brand'])
-
-#
-#plt.bar(range(len(D)), list(D.values()), align='center')
-#plt.xticks(range(len(D)), list(D.keys()))
-#
-#
-#
-#fig1, ax1 = plt.subplots()
-#ax1.pie(sizes, explode=explode, labels=labels, autopct='%1.1f%%',
-#        shadow=True, startangle=90)
-#ax1.axis('equal')  # Equal aspect ratio ensures that pie is drawn as a circle.
-#
-#plt.show()
 
 #%%
 
-#What is the maximum range of each gasoline type per month?
+# =============================================================================
+# #What is the maximum range of each gasoline type per month?
+# =============================================================================
 
 listRangeE5 = list()
 listRangeE10 = list()
 listRangeDIESEL = list()
 
 
-for x in range (0, len(list1)):
+for x in range (0, len(MonthsTotal)):
     listRangeE5.append(listMaxE5[x] - listMinE5[x])
     listRangeE10.append(listMaxE10[x] - listMinE10[x])
     listRangeDIESEL.append(listMaxDIESEL[x] - listMinDIESEL[x])
+
+RangePrices = pd.DataFrame(
+{
+ 'Month': MonthsTotal,
+ 'E5': listRangeE5,
+ 'E10': listRangeE10, 
+ 'DIESEL': listRangeDIESEL 
+})   
     
-#%%
-    print reduce(lambda x, y: x + y, listRangeE5) / len(listRangeE5)
-    print reduce(lambda x, y: x + y, listRangeE10) / len(listRangeE10)
-    print reduce(lambda x, y: x + y, listRangeDIESEL) / len(listRangeDIESEL)
+f, ax = plt.subplots(1, 1, sharey=True)
+
+ax.scatter(RangePrices.Month, RangePrices.E5)    
+ax.scatter(RangePrices.Month, RangePrices.E10)  
+ax.scatter(RangePrices.Month, RangePrices.DIESEL)      
+plt.title('What is the maximum range of each gasoline type per month?')
+plt.xlabel('Date')
+plt.ylabel('Price')
+plt.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.)
+
+plt.xticks(rotation=35)   
 
 
 #%%
 
-#What is the region with most concentration of gas stations?
+# =============================================================================
+# #What is the region with most concentration of gas stations?
+# =============================================================================
 
 listPostReg = list()
 
@@ -275,151 +288,77 @@ RegionsGasStations2 = pd.DataFrame(
  'Count':[ x[1] for x in RegionsGasStations]
 }) 
 RegionsGasStations2 = RegionsGasStations2.iloc[2:]
-    
-#%%
-
-
-##RegionsGasStations2.plot.pie(y='Count', x='Region')  
-#
-## Create a pie chart
-#plt.pie(
-#    # using data total)arrests
-#    RegionsGasStations2['Count'],
-#    # with the labels being officer names
-#    labels=RegionsGasStations2['Region'],
-#    # with no shadows
-#    shadow=False,
-#    explode=(0.15,0.15,0.15, 0.15, 0.15, 0.15, 0.15,0.15),
-#    startangle=90,
-#    autopct='%1.1f%%', labeldistance=1.1
-#    
-#    )
-#
-## View the plot drop above
-#plt.axis('equal')
-#
-## View the plot
-#plt.tight_layout()
-#plt.show()
 
 
 ax = sns.barplot(x="Region", y="Count",  data=RegionsGasStations2)   
-    
-    
-#%%
-
-plt.bar(range(len(RegionsGasStations)), RegionsGasStations.values(), align="center")
-#%%
-
-table['DAY'] = 0
-table['MONTH'] = 0
+ax.set_title('What is the region with most concentration of gas stations?')  
 
 
-for x in range (0, len(table.DATA)):
-    aux1 = table.iloc[x, 4][6:-20]
-    aux2 = table.iloc[x, 4][9:-17]
-    CollumnFill ('MONTH', int(aux1), x, table)
-    CollumnFill ('DAY', int(aux2), x, table)
+#%% 
 
+# =============================================================================
+# What is the whole Diesel variation?
+# =============================================================================
 
+diesel = pd.DataFrame()
+diesel['ID'] = table['ID']
+diesel['DIESEL'] = table['DIESEL']
+diesel['DATA'] = pd.to_datetime(table['DATA'], format='"%Y-%m-%d %H:%M:%S.%f"')
+diesel.set_index('DATA', inplace=True)
+diesel.groupby('ID')['DIESEL'].plot(legend=False)
+plt.title('What is the whole Diesel variation?')
+plt.xlabel('Date')
+plt.ylabel('Price')
 
+# =============================================================================
+# Machine learning predictor
+# =============================================================================
 
-#%%
-print table.iloc[0, 4][9:-17]
+#Preparing variables
+datadates = diesel.DATA.values
+datamonths = pd.Series(data=[pd.to_datetime(x).month for x in datadates],  name='month')
+datadays = pd.Series([pd.to_datetime(x).day for x in datadates],  name='day')
+datahour = pd.Series([pd.to_datetime(x).hour for x in datadates],  name='hour')
 
-
-
-
-table['DATA'] = pd.to_datetime(table['DATA'], format='"%Y-%m-%d %H:%M:%S.%f"')
-
-
-#%%
-
-
-
-
-
-
-Y = table.iloc[:1000,3]
-
-X = Y.astype('float64', raise_on_error = False)
-
-
-size = int(len(X) * 0.66)
-
-train, test = X[0:size], X[size:len(X)]
-
-history = [x for x in train]
-
-predictions = list()
-#%%
-for t in range(len(test)):
-	model = ARIMA(history, order=(5,1,0))
-	model_fit = model.fit(disp=0)
-	output = model_fit.forecast()
-	yhat = output[0]
-	predictions.append(yhat)
-	obs = test[t]
-	history.append(obs)
-	print('predicted=%i, expected=%i' % (yhat, obs))
-
-
-
+diesel['DAY'] = datadays
+diesel['MONTH'] = datamonths
+diesel['HOUR'] = datahour
 
 #%%
 
+reg = LinearRegression()
+
+teste = pd.DataFrame()
+
+teste = diesel
+teste['E5'] = table['E5']
+teste['E10'] = table['E10']
+teste= teste.iloc[:500000,:]
 
 
+labels = teste['DIESEL']
+train1 = teste.drop(['ID', 'DIESEL', 'DATA'],axis=1)
 
+# =============================================================================
+# Simple Linear Regressor
+# =============================================================================
 
-
-import pandas as pd
-import matplotlib.pyplot as plt
-import datetime as DT
-import seaborn as sns
-import numpy as np
-from scipy import stats, integrate
-import time
-import matplotlib.ticker as ticker
-from string import Template
-from PyPDF2 import PdfFileMerger
-
-
-#%%
-def PdfsMerger(pdfList, outputName):
-    merger = PdfFileMerger()
-
-    for pdf in pdfList:
-        merger.append(open(pdf, 'rb'))
-    
-    with open('%s/%s/%s.pdf' % (outputFolder, folder, outputName) , 'wb') as fout:
-        merger.write(fout)    
-                
-#%%
-def PdfCreator(merger, pdf, outputFolder, folder, outName):
-    
-    with open('%s/%s/%s.pdf' % (outputFolder, folder, outName), 'wb') as fout:
-        merger.write(fout)    
-    #print fout     
-
+x_train, x_test, y_train, y_test =train_test_split(train1, labels, test_size=0.40, random_state=2)
+reg.fit(x_train, y_train)
+reg.score(x_test, y_test)
 
 #%%
-               
 
+# =============================================================================
+# Gradient Boosting Regressor
+# =============================================================================
 
+clf = ensemble.GradientBoostingRegressor(n_estimators = 800, max_depth = 8, min_samples_split = 4,
+          learning_rate = 0.4, loss = 'ls')
 
+clf.fit(x_train, y_train)
 
-
-
-
-
-
-
-
-
-
-
-
+clf.score(x_test,y_test)
 
 
 
