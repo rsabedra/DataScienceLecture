@@ -1,7 +1,7 @@
 # Data Science Lecture Exercise - 2018
 
 Project to introduce and enhance the knowledge of the students 
-about the whole subject Data Science.
+about the whole subject of Data Science.
 
 ## Versioning
 
